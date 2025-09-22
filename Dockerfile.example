@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1.6
+
+##############################
+# Base with Go + module cache
+##############################
+FROM golang:1.23-alpine AS base
+WORKDIR /app
+RUN apk add --no-cache git
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
+
+########################################
+# Option 1: Portable (pure-Go) build (no CGO/tag)
+########################################
+FROM base AS build-portable
+ENV CGO_ENABLED=0
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    go build -trimpath -ldflags="-s -w" -o /out/ring-go ./examples/...
+
+#############################################
+# Option 2: Ethereum secp256k1 (CGO) build (fast path)
+#############################################
+FROM base AS build-fast
+
+# Toolchain + headers for CGO and libsecp256k1
+RUN apk add --no-cache build-base pkgconfig libsecp256k1-dev
+ENV CGO_ENABLED=1
+
+# Build with ethereum_secp256k1 tag for optimal performance
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    go build -tags "ethereum_secp256k1" -trimpath -ldflags="-s -w" -o /out/ring-go ./examples/...
+
+##########################
+# Final images per flavor
+##########################
+
+# Option 1: Portable: truly minimal
+FROM scratch AS portable
+COPY --from=build-portable /out/ring-go /ring-go
+ENTRYPOINT ["/ring-go"]
+
+# Option 2: Ethereum CGO: needs libc and (usually) libsecp256k1 at runtime
+FROM alpine:3.21 AS fast
+RUN apk add --no-cache ca-certificates libsecp256k1 # runtime lib if dynamically linked
+WORKDIR /root
+COPY --from=build-fast /out/ring-go ./ring-go
+ENTRYPOINT ["./ring-go"]
