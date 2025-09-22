@@ -55,14 +55,20 @@ def parse_benchmark_output():
         allocs_per_op = parts[6]
 
         # Extract operation, ring size, and backend from benchmark name
-        # BenchmarkSign2_Decred-10 -> Sign, 2, Decred
-        # BenchmarkVerify32_Fast-10 -> Verify, 32, Fast
+        # BenchmarkSign2_Secp256k1-10 -> Sign, 2, Secp256k1
+        # BenchmarkVerify32_Ed25519-10 -> Verify, 32, Ed25519
         match = re.match(r'Benchmark(\w+?)(\d+)_(\w+)-\d+', bench_name)
         if not match:
             continue
 
         operation, ring_size, backend = match.groups()
         ring_size = int(ring_size)
+
+        # Map backend names for clarity
+        if backend == 'Secp256k1':
+            backend = 'Secp256k1'
+        elif backend == 'Ed25519':
+            backend = 'Ed25519'
 
         data[operation][ring_size][backend] = {
             'ns': float(ns_per_op),

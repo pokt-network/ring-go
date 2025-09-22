@@ -8,13 +8,14 @@ require (
 	filippo.io/edwards25519 v1.0.0
 	github.com/athanorlabs/go-dleq v0.1.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0
+	github.com/ethereum/go-ethereum v1.14.12
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.36.0
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
+	github.com/holiman/uint256 v1.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect

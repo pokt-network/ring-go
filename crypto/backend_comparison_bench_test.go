@@ -23,20 +23,14 @@ package crypto
 import (
 	"testing"
 
-	"github.com/athanorlabs/go-dleq/secp256k1"
 	"github.com/stretchr/testify/require"
 )
 
 var testMessage = [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
 
-// benchmarkBackend benchmarks a specific backend for basic curve operations
-func benchmarkBackend(b *testing.B, backendName string, useFast bool) {
-	var backend CurveBackend
-	if useFast {
-		backend = NewSecp256k1Backend() // Uses pluggable backends
-	} else {
-		backend = &decredBackend{curve: secp256k1.NewCurve()}
-	}
+// benchmarkBackend benchmarks the current backend for basic curve operations
+func benchmarkBackend(b *testing.B, backendName string) {
+	backend := NewSecp256k1Backend() // Uses currently compiled backend
 
 	privKey := backend.NewRandomScalar()
 
@@ -48,22 +42,25 @@ func benchmarkBackend(b *testing.B, backendName string, useFast bool) {
 }
 
 // Generate backend comparison benchmarks
-func BenchmarkBackend_Decred(b *testing.B) { benchmarkBackend(b, "Decred", false) }
-func BenchmarkBackend_Fast(b *testing.B)   { benchmarkBackend(b, "Fast", true) }
+func BenchmarkBackend_Current(b *testing.B) { benchmarkBackend(b, "Current") }
 
-// TestBackendCompatibility ensures both backends produce compatible results
+// TestBackendCompatibility ensures the current backend produces valid results
 func TestBackendCompatibility(t *testing.T) {
-	// Test Decred backend
-	decredBackend := &decredBackend{curve: secp256k1.NewCurve()}
-	decredPrivKey := decredBackend.NewRandomScalar()
-	decredPoint := decredBackend.ScalarBaseMul(decredPrivKey)
-	require.NotNil(t, decredPoint, "Decred backend should produce valid points")
+	// Test current backend (determined by build tags)
+	backend := NewSecp256k1Backend()
+	privKey := backend.NewRandomScalar()
+	point := backend.ScalarBaseMul(privKey)
+	require.NotNil(t, point, "Backend should produce valid points")
 
-	// Test Fast backend
-	fastBackend := NewSecp256k1Backend()
-	fastPrivKey := fastBackend.NewRandomScalar()
-	fastPoint := fastBackend.ScalarBaseMul(fastPrivKey)
-	require.NotNil(t, fastPoint, "Fast backend should produce valid points")
+	// Test scalar operations
+	scalar2 := backend.NewRandomScalar()
+	sum := privKey.Add(scalar2)
+	require.NotNil(t, sum, "Scalar addition should work")
 
-	t.Log("✅ Both backends produce valid curve operations")
+	// Test point operations
+	point2 := backend.ScalarBaseMul(scalar2)
+	pointSum := point.Add(point2)
+	require.NotNil(t, pointSum, "Point addition should work")
+
+	t.Logf("✅ %s backend produces valid curve operations", backend.Name())
 }

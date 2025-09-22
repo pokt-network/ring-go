@@ -17,20 +17,20 @@ benchmark_report: ## Compare crypto backends with formatted report for ring sign
 	@echo "🔬 Benchmarking ring signature crypto backends..."
 	@echo "=================================================================="
 	@timeout 60s \
-		go test ./crypto \
-			-bench="BenchmarkSign|BenchmarkVerify" \
+		go test . \
+			-bench="BenchmarkSign.*_Secp256k1|BenchmarkVerify.*_Secp256k1" \
 			-benchmem \
 			-run=^$$ \
 			-benchtime=3s \
 			2>/dev/null | \
 		python3 format_benchmark.py \
 		|| ( \
-			echo "⚠️  Benchmark timed out or failed. Trying without Ethereum library..." && \
-			CGO_ENABLED=0 go test ./crypto \
-				-bench="BenchmarkSignNoCgo|BenchmarkVerifyNoCgo" \
+			echo "⚠️  Benchmark timed out or failed. Trying simpler benchmark..." && \
+			go test . \
+				-bench="BenchmarkSign2_|BenchmarkSign32_|BenchmarkVerify2_|BenchmarkVerify32_" \
 				-benchmem \
 				-run=^$$ \
-				-benchtime=3s \
+				-benchtime=1s \
 				2>/dev/null | \
 			python3 format_benchmark.py \
 		)
