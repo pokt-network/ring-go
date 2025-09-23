@@ -52,15 +52,15 @@ benchmark_report: ## Compare crypto backends with formatted report for ring sign
 	@echo "=================================================================="
 	@( \
 		echo "# Decred Backend Results:" && \
-		timeout 30s go test . \
-			-bench="BenchmarkSign.*_Secp256k1|BenchmarkVerify.*_Secp256k1" \
+		timeout 45s go test . \
+			-bench="BenchmarkSign(2|4|8|16|32)_Secp256k1|BenchmarkVerify(2|4|8|16|32)_Secp256k1" \
 			-benchmem \
 			-run=^$$ \
 			-benchtime=2s \
 			2>/dev/null | sed 's/_Secp256k1/_Decred/g' && \
 		echo "# Ethereum Backend Results:" && \
-		timeout 30s go test -tags=ethereum_secp256k1 . \
-			-bench="BenchmarkSign.*_Secp256k1|BenchmarkVerify.*_Secp256k1" \
+		timeout 45s go test -tags=ethereum_secp256k1 . \
+			-bench="BenchmarkSign(2|4|8|16|32)_Secp256k1|BenchmarkVerify(2|4|8|16|32)_Secp256k1" \
 			-benchmem \
 			-run=^$$ \
 			-benchtime=2s \
