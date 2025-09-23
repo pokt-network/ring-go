@@ -16,32 +16,40 @@ benchmark_all: ## Run all benchmarks (tests both Decred and Ethereum backends)
 benchmark_report: ## Compare crypto backends with formatted report for ring signatures
 	@echo "🔬 Benchmarking ring signature crypto backends..."
 	@echo "=================================================================="
-	@timeout 60s \
-		go test . \
+	@( \
+		echo "# Decred Backend Results:" && \
+		timeout 30s go test . \
 			-bench="BenchmarkSign.*_Secp256k1|BenchmarkVerify.*_Secp256k1" \
 			-benchmem \
 			-run=^$$ \
-			-benchtime=3s \
-			2>/dev/null | \
-		python3 format_benchmark.py \
-		|| ( \
-			echo "⚠️  Benchmark timed out or failed. Trying simpler benchmark..." && \
+			-benchtime=2s \
+			2>/dev/null | sed 's/_Secp256k1/_Decred/g' && \
+		echo "# Ethereum Backend Results:" && \
+		timeout 30s go test -tags=ethereum_secp256k1 . \
+			-bench="BenchmarkSign.*_Secp256k1|BenchmarkVerify.*_Secp256k1" \
+			-benchmem \
+			-run=^$$ \
+			-benchtime=2s \
+			2>/dev/null | sed 's/_Secp256k1/_Ethereum/g' \
+	) | python3 format_benchmark.py || ( \
+		echo "⚠️  Benchmark timed out or failed. Trying simpler benchmark..." && \
+		( \
+			echo "# Decred Backend Results:" && \
 			go test . \
 				-bench="BenchmarkSign2_|BenchmarkSign32_|BenchmarkVerify2_|BenchmarkVerify32_" \
 				-benchmem \
 				-run=^$$ \
 				-benchtime=1s \
-				2>/dev/null | \
-			python3 format_benchmark.py \
-		)
-	@echo "=================================================================="
-	@echo "💡 Key Insights:"
-	@echo "   🥇 = Fastest    🥈 = Second fastest    🥉 = Third fastest"
-	@echo ""
-	@echo "   • Ethereum (libsecp256k1) is fastest but requires CGO"
-	@echo "   • Decred offers best CGO-free performance for ring signatures"
-	@echo "   • Fast backend provides ~50% faster signing, ~80% faster verification"
-	@echo "   • Larger ring sizes benefit more from optimized backends"
+				2>/dev/null | sed 's/_Secp256k1/_Decred/g' && \
+			echo "# Ethereum Backend Results:" && \
+			go test -tags=ethereum_secp256k1 . \
+				-bench="BenchmarkSign2_|BenchmarkSign32_|BenchmarkVerify2_|BenchmarkVerify32_" \
+				-benchmem \
+				-run=^$$ \
+				-benchtime=1s \
+				2>/dev/null | sed 's/_Secp256k1/_Ethereum/g' \
+		) | python3 format_benchmark.py \
+	)
 	@echo "=================================================================="
 
 .PHONY: benchmark_compatibility

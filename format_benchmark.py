@@ -40,7 +40,7 @@ def parse_benchmark_output():
 
     for line in sys.stdin:
         line = line.strip()
-        if not line.startswith('Benchmark'):
+        if not line.startswith('Benchmark') or 'ns/op' not in line:
             continue
 
         # Parse benchmark line: BenchmarkSign2_Decred-10  795  1550968 ns/op  5013 B/op  84 allocs/op
@@ -55,8 +55,8 @@ def parse_benchmark_output():
         allocs_per_op = parts[6]
 
         # Extract operation, ring size, and backend from benchmark name
-        # BenchmarkSign2_Secp256k1-10 -> Sign, 2, Secp256k1
-        # BenchmarkVerify32_Ed25519-10 -> Verify, 32, Ed25519
+        # BenchmarkSign2_Decred-10 -> Sign, 2, Decred
+        # BenchmarkVerify32_Ethereum-10 -> Verify, 32, Ethereum
         match = re.match(r'Benchmark(\w+?)(\d+)_(\w+)-\d+', bench_name)
         if not match:
             continue
@@ -65,7 +65,11 @@ def parse_benchmark_output():
         ring_size = int(ring_size)
 
         # Map backend names for clarity
-        if backend == 'Secp256k1':
+        if backend == 'Decred':
+            backend = 'Decred'
+        elif backend == 'Ethereum':
+            backend = 'Ethereum'
+        elif backend == 'Secp256k1':
             backend = 'Secp256k1'
         elif backend == 'Ed25519':
             backend = 'Ed25519'
@@ -80,69 +84,47 @@ def parse_benchmark_output():
     return data
 
 def print_formatted_results(data):
-    """Print formatted benchmark results"""
+    """Print formatted benchmark results with side-by-side comparison"""
     operations = ['Sign', 'Verify']
     ring_sizes = [2, 4, 8, 16, 32]
-    medals = ['🥇', '🥈', '🥉']
 
     for operation in operations:
         if operation not in data:
             continue
 
         print(f"\n🔍 {operation.upper()} PERFORMANCE (Ring Signatures):")
-        print(f"{'Ring Size':<10} {'Backend':<15} {'Time/op':<12} {'Memory/op':<12} {'Allocs/op':<12} {'Performance':<12}")
-        print(f"{'--------':<10} {'-------':<15} {'--------':<12} {'---------':<12} {'---------':<12} {'-----------':<12}")
+        print(f"{'Ring':<5} {'Decred':<15} {'Ethereum':<15} {'Improvement':<12}")
+        print(f"{'Size':<5} {'(Pure Go)':<15} {'(libsecp256k1)':<15} {'(% faster)':<12}")
+        print(f"{'----':<5} {'-----------':<15} {'---------------':<15} {'-----------':<12}")
 
         for ring_size in ring_sizes:
             if ring_size not in data[operation]:
                 continue
 
             backends_data = data[operation][ring_size]
-            # Sort backends by performance (time)
-            backends_sorted = sorted(backends_data.items(), key=lambda x: x[1]['ns'])
 
-            for i, (backend, metrics) in enumerate(backends_sorted):
-                time_str = format_time(metrics['ns'])
-                memory_str = format_memory(metrics['bytes'])
-                allocs_str = format_number(metrics['allocs'])
-                medal = medals[i] if i < len(medals) else ''
-
-                print(f"{ring_size:<10} {backend:<15} {time_str:<12} {memory_str:<12} {allocs_str:<12} {medal}")
-
-            # Add separator between ring sizes
-            if ring_size != ring_sizes[-1]:
-                print()
-
-def print_performance_summary(data):
-    """Print performance improvement summary"""
-    print(f"\n📊 PERFORMANCE IMPROVEMENTS:")
-    print(f"{'Operation':<12} {'Ring Size':<10} {'Decred':<12} {'Fast/Ethereum':<15} {'Improvement':<12}")
-    print(f"{'--------':<12} {'--------':<10} {'------':<12} {'-------------':<15} {'-----------':<12}")
-
-    operations = ['Sign', 'Verify']
-    ring_sizes = [2, 8, 32]
-
-    for operation in operations:
-        if operation not in data:
-            continue
-
-        for ring_size in ring_sizes:
-            if ring_size not in data[operation]:
-                continue
-
-            backends = data[operation][ring_size]
-            if 'Decred' in backends and ('Fast' in backends or 'Ethereum' in backends):
-                decred_time = backends['Decred']['ns']
-                fast_backend = 'Fast' if 'Fast' in backends else 'Ethereum'
-                fast_time = backends[fast_backend]['ns']
-
-                improvement = ((decred_time - fast_time) / decred_time) * 100
+            if 'Decred' in backends_data and 'Ethereum' in backends_data:
+                decred_time = backends_data['Decred']['ns']
+                ethereum_time = backends_data['Ethereum']['ns']
 
                 decred_str = format_time(decred_time)
-                fast_str = format_time(fast_time)
-                improvement_str = f"{improvement:.0f}% faster" if improvement > 0 else f"{abs(improvement):.0f}% slower"
+                ethereum_str = format_time(ethereum_time)
 
-                print(f"{operation:<12} {ring_size:<10} {decred_str:<12} {fast_str:<15} {improvement_str}")
+                improvement = ((decred_time - ethereum_time) / decred_time) * 100
+                improvement_str = f"{improvement:.0f}%" if improvement > 0 else f"{abs(improvement):.0f}% slower"
+
+                print(f"{ring_size:<5} {decred_str:<15} {ethereum_str:<15} {improvement_str:<12}")
+            elif 'Decred' in backends_data:
+                decred_time = backends_data['Decred']['ns']
+                decred_str = format_time(decred_time)
+                print(f"{ring_size:<5} {decred_str:<15} {'N/A':<15} {'N/A':<12}")
+            elif 'Ethereum' in backends_data:
+                ethereum_time = backends_data['Ethereum']['ns']
+                ethereum_str = format_time(ethereum_time)
+                print(f"{ring_size:<5} {'N/A':<15} {ethereum_str:<15} {'N/A':<12}")
+
+        print()  # Add separator between operations
+
 
 if __name__ == "__main__":
     data = parse_benchmark_output()
@@ -154,12 +136,3 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print_formatted_results(data)
-    print_performance_summary(data)
-
-    print(f"\n💡 KEY INSIGHTS:")
-    print(f"   🥇 = Fastest    🥈 = Second fastest    🥉 = Third fastest")
-    print(f"")
-    print(f"   • Ethereum/Fast backend provides significant performance improvements")
-    print(f"   • Larger ring sizes benefit more from optimized backends")
-    print(f"   • Decred backend offers excellent portability (no CGO required)")
-    print(f"   • Choose backend based on performance vs portability requirements")
