@@ -3,6 +3,7 @@ package ring
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/athanorlabs/go-dleq/ed25519"
 	"github.com/athanorlabs/go-dleq/types"
@@ -12,6 +13,8 @@ import (
 type Ring struct {
 	pubkeys []types.Point
 	curve   types.Curve
+	// precomputed once to avoid recomputing in Sign/Verify loops.
+	hp []types.Point
 }
 
 // Size returns the size of the ring, ie. the number of public keys in it.
@@ -53,6 +56,21 @@ func (r *RingSig) PublicKeys() []types.Point {
 	return ret
 }
 
+// PublicKeysRef returns a reference to the ring's public keys without copying them.
+// NOTE: While the method does not involve cloning or copying, mutating the returned slice
+// or its elements can break the integrity of the ring signature structure. Avoid mutation.
+func (r *RingSig) PublicKeysRef() []types.Point {
+	return r.ring.pubkeys
+}
+
+// Reset clears fields so RingSig can be reused with a pool (additive; safe for callers).
+func (r *RingSig) Reset() {
+	r.ring = nil
+	r.c = nil
+	r.s = nil
+	r.image = nil
+}
+
 // Ring returns the ring from the RingSig struct
 func (r *RingSig) Ring() *Ring {
 	return r.ring
@@ -69,25 +87,21 @@ func NewKeyRingFromPublicKeys(curve types.Curve, pubkeys []types.Point, privKey 
 	if idx > len(pubkeys) {
 		return nil, errors.New("index out of bounds: idx > len(pubkeys)")
 	}
-
 	if idx < 0 {
 		return nil, errors.New("index out of bounds: idx < 0")
 	}
-
-	// ensure that privkey is nonzero
-	if privkey.IsZero() {
+	if privKey.IsZero() {
 		return nil, errors.New("private key is zero")
 	}
 
 	newRing[idx] = pubkey
-	pubkeysMap := make(map[types.Point]struct{})
+	pubkeysMap := make(map[types.Point]struct{}, size)
 	pubkeysMap[pubkey] = struct{}{}
 
 	for i := 0; i < size; i++ {
 		if i == idx {
 			continue
 		}
-
 		if i < idx {
 			newRing[i] = pubkeys[i]
 		} else {
@@ -100,15 +114,22 @@ func NewKeyRingFromPublicKeys(curve types.Curve, pubkeys []types.Point, privKey 
 		return nil, errors.New("duplicate public keys in ring")
 	}
 
+	// Precompute H_p(P_i)
+	hp := make([]types.Point, size)
+	for i := 0; i < size; i++ {
+		hp[i] = hashToCurve(newRing[i])
+	}
+
 	return &Ring{
 		pubkeys: newRing,
 		curve:   curve,
+		hp:      hp,
 	}, nil
 }
 
 // NewFixedKeyRingFromPublicKeys takes public keys and a curve to create a ring
 func NewFixedKeyRingFromPublicKeys(curve types.Curve, pubkeys []types.Point) (*Ring, error) {
-	pubkeysMap := make(map[types.Point]struct{})
+	pubkeysMap := make(map[types.Point]struct{}, len(pubkeys))
 
 	size := len(pubkeys)
 	newRing := make([]types.Point, size)
@@ -121,9 +142,15 @@ func NewFixedKeyRingFromPublicKeys(curve types.Curve, pubkeys []types.Point) (*R
 		return nil, errors.New("duplicate public keys in ring")
 	}
 
+	hp := make([]types.Point, size)
+	for i := 0; i < size; i++ {
+		hp[i] = hashToCurve(newRing[i])
+	}
+
 	return &Ring{
 		pubkeys: newRing,
 		curve:   curve,
+		hp:      hp,
 	}, nil
 }
 
@@ -134,9 +161,7 @@ func NewKeyRing(curve types.Curve, size int, privKey types.Scalar, idx int) (*Ri
 	if idx >= size {
 		return nil, errors.New("index out of bounds")
 	}
-
-	// ensure that privkey is nonzero
-	if privkey.IsZero() {
+	if privKey.IsZero() {
 		return nil, errors.New("private key is zero")
 	}
 
@@ -152,9 +177,15 @@ func NewKeyRing(curve types.Curve, size int, privKey types.Scalar, idx int) (*Ri
 		ring[i] = curve.ScalarBaseMul(priv)
 	}
 
+	hp := make([]types.Point, size)
+	for i := 0; i < size; i++ {
+		hp[i] = hashToCurve(ring[i])
+	}
+
 	return &Ring{
 		pubkeys: ring,
 		curve:   curve,
+		hp:      hp,
 	}, nil
 }
 
@@ -169,12 +200,41 @@ func (r *Ring) Sign(m [32]byte, privKey types.Scalar) (*RingSig, error) {
 			break
 		}
 	}
-
 	if ourIdx == -1 {
 		return nil, errors.New("failed to find given key in public key set")
 	}
-
 	return Sign(m, r, privKey, ourIdx)
+}
+
+// ensureHP computes H_p(P_i) for all pubkeys if missing or out of date.
+// It normalizes points through the ring's curve before hashing-to-curve to
+// avoid "unsupported point type" panics from mixed concrete types.
+func (r *Ring) ensureHP() error {
+	if r == nil || r.curve == nil {
+		return fmt.Errorf("nil ring/curve")
+	}
+	if r.pubkeys == nil || len(r.pubkeys) == 0 {
+		return fmt.Errorf("no pubkeys in ring")
+	}
+	if r.hp != nil && len(r.hp) == len(r.pubkeys) {
+		return nil
+	}
+
+	hp := make([]types.Point, len(r.pubkeys))
+	for i, pk := range r.pubkeys {
+		if pk == nil {
+			return fmt.Errorf("nil pubkey at index %d", i)
+		}
+		// Normalize the point to the concrete type produced by this curve.
+		enc := pk.Encode()
+		dec, err := r.curve.DecodeToPoint(enc)
+		if err != nil {
+			return fmt.Errorf("failed to decode pubkey[%d]: %w", i, err)
+		}
+		hp[i] = hashToCurve(dec) // uses your existing helper
+	}
+	r.hp = hp
+	return nil
 }
 
 // Sign creates a ring signature on the given message using the provided private key
@@ -184,13 +244,10 @@ func Sign(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int) (*RingSig, e
 	if size < 2 {
 		return nil, errors.New("size of ring less than two")
 	}
-
 	if ourIdx >= size {
 		return nil, errors.New("secret index out of range of ring size")
 	}
-
-	// ensure that privkey is nonzero
-	if privkey.IsZero() {
+	if privKey.IsZero() {
 		return nil, errors.New("private key is zero")
 	}
 
@@ -209,8 +266,11 @@ func Sign(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int) (*RingSig, e
 		image: curve.ScalarMul(privKey, h),
 	}
 
-	// start at c[j]
-	c := make([]types.Scalar, size)
+	// start at c[j]; pooled scratch
+	c := getScalarScratch(size)
+	defer putScalarScratch(c)
+
+	// s IS RETAINED not needs to pool it
 	s := make([]types.Scalar, size)
 
 	// pick random scalar u, calculate L[j] = u*G
@@ -239,17 +299,16 @@ func Sign(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int) (*RingSig, e
 		sG := curve.ScalarBaseMul(s[idx])
 		l := cP.Add(sG)
 
-		// calculate R_i = s_i*H_p(P_i) + c_i*I
+		// calculate R_i = s_i*H_p(P_i) + c_i*I (use precomputed ring.hp[idx])
 		cI := curve.ScalarMul(c[idx], sig.image)
-		hp := hashToCurve(ring.pubkeys[idx])
-		sH := curve.ScalarMul(s[idx], hp)
+		sH := curve.ScalarMul(s[idx], ring.hp[idx])
 		r := cI.Add(sH)
 
 		// calculate c[i+1] = H(m, L_i, R_i)
 		c[(idx+1)%size] = challenge(curve, m, l, r)
 	}
 
-	// close ring by finding s[j] = u - c[j]*x
+	// close the ring by finding s[j] = u - c[j]*x
 	cx := c[ourIdx].Mul(privKey)
 	s[ourIdx] = u.Sub(cx)
 
@@ -258,26 +317,21 @@ func Sign(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int) (*RingSig, e
 	sG := curve.ScalarBaseMul(s[ourIdx])
 	lNew := cP.Add(sG)
 	if !lNew.Equals(l) {
-		// this should not happen
 		return nil, errors.New("failed to close ring: uG != sG + cP")
 	}
 
-	// check that u*H_p(P[j]) = s[j]*H_p(P[j]) + c[j]*I
 	cI := curve.ScalarMul(c[ourIdx], sig.image)
 	sH := curve.ScalarMul(s[ourIdx], h)
 	rNew := cI.Add(sH)
 	if !rNew.Equals(r) {
-		// this should not happen
 		return nil, errors.New("failed to close ring: uH(P) != sH(P) + cI")
 	}
 
-	// check that H(m, L[j], R[j]) == c[j+1]
 	cCheck := challenge(ring.curve, m, l, r)
 	if !cCheck.Eq(c[(ourIdx+1)%size]) {
 		return nil, errors.New("challenge check failed")
 	}
 
-	// everything ok, add values to signature
 	sig.s = s
 	sig.c = c[0]
 	return sig, nil
@@ -286,10 +340,23 @@ func Sign(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int) (*RingSig, e
 // Verify verifies the ring signature for the given message.
 // It returns true if a valid signature, false otherwise.
 func (sig *RingSig) Verify(m [32]byte) bool {
+	if sig == nil || sig.ring == nil {
+		return false
+	}
 	// setup
 	ring := sig.ring
 	size := len(ring.pubkeys)
-	c := make([]types.Scalar, size)
+	if size < 2 || len(sig.s) != size || sig.c == nil || sig.image == nil || ring.curve == nil {
+		return false
+	}
+	if err := ring.ensureHP(); err != nil {
+		return false
+	}
+
+	// pooled scratch for c[]
+	c := getScalarScratch(size)
+	defer putScalarScratch(c)
+
 	c[0] = sig.c
 	curve := ring.curve
 
@@ -303,8 +370,8 @@ func (sig *RingSig) Verify(m [32]byte) bool {
 
 		// calculate R_i = s_i*H_p(P_i) + c_i*I
 		cI := curve.ScalarMul(c[i], sig.image)
-		h := hashToCurve(ring.pubkeys[i])
-		sH := curve.ScalarMul(sig.s[i], h)
+		// use precomputed H_p(P_i)
+		sH := curve.ScalarMul(sig.s[i], ring.hp[i])
 		r := cI.Add(sH)
 
 		// calculate c[i+1] = H(m, L_i, R_i)
@@ -332,12 +399,98 @@ func Link(sigA, sigB *RingSig) bool {
 	}
 }
 
+// Optimized challenge with pooled buffer and EncodeInto
+
+// encodePointInto tries types.PointEncodeInto; falls back to Encode(). Returns bytes written.
+func encodePointInto(p types.Point, dst []byte) int {
+	if ei, ok := p.(types.PointEncodeInto); ok {
+		return ei.EncodeInto(dst)
+	}
+	b := p.Encode()
+	return copy(dst, b)
+}
+
+var challengeBufPool = sync.Pool{
+	New: func() any {
+		// default cap fits secp256k1: 32 (msg) + 33 + 33 = 98
+		return make([]byte, 0, 98)
+	},
+}
+
 func challenge(curve types.Curve, m [32]byte, l, r types.Point) types.Scalar {
-	t := append(m[:], append(l.Encode(), r.Encode()...)...)
-	c, err := curve.HashToScalar(t)
+	ps := curve.CompressedPointSize()
+	need := 32 + 2*ps
+
+	buf := challengeBufPool.Get().([]byte)
+	if cap(buf) < need {
+		buf = make([]byte, need)
+	}
+	buf = buf[:need]
+
+	// [0:32) = message
+	copy(buf[:32], m[:])
+
+	// [32:32+ps) = L (compressed)
+	off := 32
+	_ = encodePointInto(l, buf[off:off+ps])
+
+	// [32+ps:32+2*ps) = R (compressed)
+	off += ps
+	_ = encodePointInto(r, buf[off:off+ps])
+
+	c, err := curve.HashToScalar(buf)
+
+	// return buffer to pool
+	challengeBufPool.Put(buf[:0])
+
 	if err != nil {
 		// this should not happen
 		panic(err)
 	}
 	return c
+}
+
+// Pooled scratch for c[] in Verify/Sign
+
+// bucketed pools to avoid resizing and reduce GC churn
+var scalarPools = [...]struct {
+	cap  int
+	pool sync.Pool
+}{
+	{16, sync.Pool{New: func() any { return make([]types.Scalar, 0, 16) }}},
+	{32, sync.Pool{New: func() any { return make([]types.Scalar, 0, 32) }}},
+	{64, sync.Pool{New: func() any { return make([]types.Scalar, 0, 64) }}},
+	{128, sync.Pool{New: func() any { return make([]types.Scalar, 0, 128) }}},
+	{256, sync.Pool{New: func() any { return make([]types.Scalar, 0, 256) }}},
+}
+
+func getScalarScratch(n int) []types.Scalar {
+	for i := range scalarPools {
+		if n <= scalarPools[i].cap {
+			b := scalarPools[i].pool.Get().([]types.Scalar)
+			if cap(b) < n {
+				// extremely unlikely, but be safe
+				return make([]types.Scalar, n)
+			}
+			return b[:n]
+		}
+	}
+	// fallback for huge rings (rare)
+	return make([]types.Scalar, n)
+}
+
+func putScalarScratch(b []types.Scalar) {
+	capb := cap(b)
+	// clear interface elements to avoid retaining pointers
+	for i := range b {
+		b[i] = nil
+	}
+	b = b[:0]
+	for i := range scalarPools {
+		if capb == scalarPools[i].cap {
+			scalarPools[i].pool.Put(b)
+			return
+		}
+	}
+	// non-pooled capacity: drop
 }

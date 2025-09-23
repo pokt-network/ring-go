@@ -3,6 +3,7 @@ package ring
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"github.com/athanorlabs/go-dleq/secp256k1"
 	"math/big"
 	"testing"
 
@@ -258,4 +259,131 @@ func TestSign_OneKey_Fails(t *testing.T) {
 	_, err = keyring.Sign(testMsg, privKey)
 	require.Error(t, err)
 	require.Equal(t, "size of ring less than two", err.Error())
+}
+
+func TestPublicKeys_CopySemantics(t *testing.T) {
+	curve := Secp256k1()
+	priv := curve.NewRandomScalar()
+	r, err := NewKeyRing(curve, 3, priv, 1)
+	require.NoError(t, err)
+
+	sig, err := r.Sign(testMsg, priv)
+	require.NoError(t, err)
+
+	a := sig.PublicKeys()
+	b := sig.PublicKeys()
+	require.NotSame(t, &a[0], &b[0], "PublicKeys must return a fresh copy")
+	require.Equal(t, len(a), len(b))
+}
+
+func TestPublicKeysRef_ReadOnlyView(t *testing.T) {
+	curve := Secp256k1()
+	priv := curve.NewRandomScalar()
+	r, err := NewKeyRing(curve, 3, priv, 0)
+	require.NoError(t, err)
+
+	sig, err := r.Sign(testMsg, priv)
+	require.NoError(t, err)
+
+	ref := sig.PublicKeysRef()
+	require.Equal(t, r.Size(), len(ref))
+	// Do NOT modify ref; it aliases the ring’s internal slice.
+}
+
+func TestPrecomputeHp_NewKeyRing(t *testing.T) {
+	curve := Secp256k1()
+	priv := curve.NewRandomScalar()
+	r, err := NewKeyRing(curve, 5, priv, 2)
+	require.NoError(t, err)
+
+	require.Equal(t, r.Size(), len(r.hp), "hp must be precomputed for each pubkey")
+	for i := 0; i < r.Size(); i++ {
+		exp := hashToCurve(r.pubkeys[i])
+		require.True(t, r.hp[i].Equals(exp), "hp[%d] must equal hashToCurve(pubkeys[%d])", i, i)
+	}
+}
+
+func TestPrecomputeHp_NewKeyRingFromPublicKeys(t *testing.T) {
+	curve := Secp256k1()
+	size := 4
+	pubkeys := make([]types.Point, size)
+	for i := 0; i < size; i++ {
+		pubkeys[i] = curve.ScalarBaseMul(curve.NewRandomScalar())
+	}
+	priv := curve.NewRandomScalar()
+
+	r, err := NewKeyRingFromPublicKeys(curve, pubkeys, priv, 1)
+	require.NoError(t, err)
+
+	require.Equal(t, r.Size(), len(r.hp), "hp must be precomputed for each pubkey")
+	for i := 0; i < r.Size(); i++ {
+		exp := hashToCurve(r.pubkeys[i])
+		require.True(t, r.hp[i].Equals(exp), "hp[%d] must equal hashToCurve(pubkeys[%d])", i, i)
+	}
+}
+
+func TestPrecomputeHp_NewFixedKeyRingFromPublicKeys(t *testing.T) {
+	curve := Secp256k1()
+	size := 5
+	pubkeys := make([]types.Point, size)
+	for i := 0; i < size; i++ {
+		pubkeys[i] = curve.ScalarBaseMul(curve.NewRandomScalar())
+	}
+
+	r, err := NewFixedKeyRingFromPublicKeys(curve, pubkeys)
+	require.NoError(t, err)
+
+	require.Equal(t, r.Size(), len(r.hp), "hp must be precomputed for each pubkey")
+	for i := 0; i < r.Size(); i++ {
+		exp := hashToCurve(r.pubkeys[i])
+		require.True(t, r.hp[i].Equals(exp), "hp[%d] must equal hashToCurve(pubkeys[%d])", i, i)
+	}
+}
+
+func TestRingSig_Reset_ClearsFields(t *testing.T) {
+	curve := Secp256k1()
+	priv := curve.NewRandomScalar()
+	r, err := NewKeyRing(curve, 3, priv, 1)
+	require.NoError(t, err)
+	sig, err := r.Sign(testMsg, priv)
+	require.NoError(t, err)
+
+	// Sanity: fields set
+	require.NotNil(t, sig.ring)
+	require.NotNil(t, sig.c)
+	require.NotNil(t, sig.s)
+	require.NotNil(t, sig.image)
+
+	sig.Reset()
+	require.Nil(t, sig.ring)
+	require.Nil(t, sig.c)
+	require.Nil(t, sig.s)
+	require.Nil(t, sig.image)
+}
+
+func TestPublicKeysCopy_vs_Ref_Safety(t *testing.T) {
+	// build a small ring
+	curve := secp256k1.NewCurve()
+	priv := curve.NewRandomScalar()
+	r, err := NewKeyRing(curve, 2, priv, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// fabricate a sig that captures this ring
+	sig := &RingSig{ring: r}
+
+	// Copy is independent
+	cp := sig.PublicKeys()
+	cp[0] = nil // mutate copy
+	if sig.PublicKeysRef()[0] == nil {
+		t.Fatalf("mutation through copy leaked into ring")
+	}
+
+	// Ref is aliasing; mutation would affect ring (don’t do this in prod)
+	ref := sig.PublicKeysRef()
+	ref[0] = nil
+	if sig.PublicKeysRef()[0] != nil {
+		t.Fatalf("expected aliasing for Ref; mutation should be visible")
+	}
 }
