@@ -88,13 +88,22 @@ def print_formatted_results(data):
     operations = ['Sign', 'Verify']
     ring_sizes = [2, 4, 8, 16, 32]
 
+    # ANSI color codes
+    BOLD = '\033[1m'
+    CYAN = '\033[36m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    RED = '\033[31m'
+    BLUE = '\033[34m'
+    RESET = '\033[0m'
+
     for operation in operations:
         if operation not in data:
             continue
 
-        print(f"\n🔍 {operation.upper()} PERFORMANCE (Ring Signatures):")
-        print(f"{'Ring':<5} {'Decred':<15} {'Ethereum':<15} {'Improvement':<12}")
-        print(f"{'Size':<5} {'(Pure Go)':<15} {'(libsecp256k1)':<15} {'(% faster)':<12}")
+        print(f"\n{BOLD}{CYAN}🔍 {operation.upper()} PERFORMANCE (Ring Signatures):{RESET}")
+        print(f"{BOLD}{'Ring':<5} {'Decred':<15} {'Ethereum':<15} {'Improvement':<12}{RESET}")
+        print(f"{BOLD}{'Size':<5} {'(Pure Go)':<15} {'(libsecp256k1)':<15} {'(% faster)':<12}{RESET}")
         print(f"{'----':<5} {'-----------':<15} {'---------------':<15} {'-----------':<12}")
 
         for ring_size in ring_sizes:
@@ -111,17 +120,26 @@ def print_formatted_results(data):
                 ethereum_str = format_time(ethereum_time)
 
                 improvement = ((decred_time - ethereum_time) / decred_time) * 100
+
+                # Color code the improvement based on performance
+                if improvement >= 50:
+                    improvement_color = GREEN
+                elif improvement >= 30:
+                    improvement_color = YELLOW
+                else:
+                    improvement_color = RED
+
                 improvement_str = f"{improvement:.0f}%" if improvement > 0 else f"{abs(improvement):.0f}% slower"
 
-                print(f"{ring_size:<5} {decred_str:<15} {ethereum_str:<15} {improvement_str:<12}")
+                print(f"{BLUE}{ring_size:<5}{RESET} {decred_str:<15} {GREEN}{ethereum_str:<15}{RESET} {improvement_color}{improvement_str:<12}{RESET}")
             elif 'Decred' in backends_data:
                 decred_time = backends_data['Decred']['ns']
                 decred_str = format_time(decred_time)
-                print(f"{ring_size:<5} {decred_str:<15} {'N/A':<15} {'N/A':<12}")
+                print(f"{BLUE}{ring_size:<5}{RESET} {decred_str:<15} {'N/A':<15} {'N/A':<12}")
             elif 'Ethereum' in backends_data:
                 ethereum_time = backends_data['Ethereum']['ns']
                 ethereum_str = format_time(ethereum_time)
-                print(f"{ring_size:<5} {'N/A':<15} {ethereum_str:<15} {'N/A':<12}")
+                print(f"{BLUE}{ring_size:<5}{RESET} {'N/A':<15} {GREEN}{ethereum_str:<15}{RESET} {'N/A':<12}")
 
         print()  # Add separator between operations
 

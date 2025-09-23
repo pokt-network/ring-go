@@ -5,7 +5,6 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 
 	"github.com/athanorlabs/go-dleq/secp256k1"

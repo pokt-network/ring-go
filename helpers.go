@@ -125,7 +125,7 @@ func hashToCurveSecp256k1(pk *secp256k1.PointImpl) *secp256k1.PointImpl {
 	for i := 0; i < safety; i++ {
 		ok := dsecp256k1.DecompressY(fe, false, maybeY)
 		if ok {
-			return secp256k1.NewPointFromCoordinates(*fe, *maybeY)
+			return newPointFromFieldVals(fe, maybeY)
 		}
 
 		hash = sha3.Sum256(hash[:])
@@ -134,3 +134,5 @@ func hashToCurveSecp256k1(pk *secp256k1.PointImpl) *secp256k1.PointImpl {
 
 	return nil
 }
+
+

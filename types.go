@@ -2,6 +2,7 @@ package ring
 
 import (
 	"github.com/athanorlabs/go-dleq/ed25519"
+	"github.com/athanorlabs/go-dleq/secp256k1"
 	"github.com/athanorlabs/go-dleq/types"
 	"github.com/pokt-network/ring-go/crypto"
 )
@@ -16,12 +17,12 @@ func Ed25519() types.Curve {
 	return ed25519.NewCurve()
 }
 
-// Secp256k1 returns a new secp256k1 curve instance. When available, this automatically
-// uses optimized backends for better performance while maintaining full compatibility.
+// Secp256k1 returns a new secp256k1 curve instance. With the go-dleq fork,
+// this automatically uses optimized backends when available.
 // BUILD-TIME CONFIGURATION: With ethereum_secp256k1 build tag, expensive operations
 // are accelerated using libsecp256k1 via go-ethereum.
 func Secp256k1() types.Curve {
-	return crypto.NewOptimizedSecp256k1Curve()
+	return secp256k1.NewCurve()
 }
 
 // Secp256k1Fast returns a new secp256k1 curve instance using pluggable crypto backends.
