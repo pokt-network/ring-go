@@ -57,23 +57,24 @@ BenchmarkVerify128_Ed25519-20                 78          14955353 ns/op
 
 ### v0.2.0
 
-**Summary:**
+#### Summary
 
-- **Secp256k1**: ~**5–10% faster** across typical sizes. Examples:
-    - Sign32: **11.70ms → 10.60ms** (~**9.4%** faster)
-    - Sign64: **22.93ms → 21.02ms** (~**8.3%** faster)
-    - Verify32: **11.32ms → 10.32ms** (~**8.9%** faster)
-    - Verify64: **22.91ms → 20.69ms** (~**9.7%** faster)
-- **Ed25519**: similar gains on average (**~5–8%** for common sizes).
-    - Verify32: **4.80ms → 4.41ms** (~**8.0%**)
-    - Sign32: **4.96ms → 4.62ms** (~**7.0%**)
-- **Allocations**: consistently down **15–30%** depending on bench.  
-  (e.g., Verify32 secp256k1: **843 → 682 allocs**; Sign2 secp256k1: **84 → 75 allocs**)
+**Secp256k1**: ~**5–10% faster** across typical sizes. Examples:
+  - Sign32: **11.70ms → 10.60ms** (~**9.4%** faster)
+  - Sign64: **22.93ms → 21.02ms** (~**8.3%** faster)
+  - Verify32: **11.32ms → 10.32ms** (~**8.9%** faster)
+  - Verify64: **22.91ms → 20.69ms** (~**9.7%** faster)
+**Ed25519**: similar gains on average (**~5–8%** for common sizes).
+  - Verify32: **4.80ms → 4.41ms** (~**8.0%**)
+  - Sign32: **4.96ms → 4.62ms** (~**7.0%**)
+**Allocations**: consistently down **15–30%** depending on bench.  
+(e.g., Verify32 secp256k1: **843 → 682 allocs**; Sign2 secp256k1: **84 → 75 allocs**)
 
 
-```
-Before (v0.1.0)
--------------------------
+
+#### Before (v0.1.0)
+
+```bash
 goos: linux
 goarch: amd64
 pkg: github.com/pokt-network/ring-go
@@ -107,9 +108,11 @@ BenchmarkVerify16_Ed25519-32 500 2,421,635 ns/op 25,969 B/op 356 allocs/op
 BenchmarkVerify32_Ed25519-32 246 4,801,361 ns/op 51,904 B/op 704 allocs/op
 BenchmarkVerify64_Ed25519-32 121 9,620,050 ns/op 104,307 B/op 1,407 allocs/op
 BenchmarkVerify128_Ed25519-32 60 19,432,527 ns/op 211,098 B/op 2,869 allocs/op
+```
 
-After (v0.2.0)
--------------------------
+#### After (v0.2.0)
+
+```bash
 goos: linux
 goarch: amd64
 pkg: github.com/pokt-network/ring-go

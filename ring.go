@@ -13,7 +13,7 @@ import (
 type Ring struct {
 	pubkeys []types.Point
 	curve   types.Curve
-	// hp[i] = hashToCurve(pubkeys[i]); precomputed once to avoid recomputing in Sign/Verify loops.
+	// precomputed once to avoid recomputing in Sign/Verify loops.
 	hp []types.Point
 }
 
@@ -56,8 +56,9 @@ func (r *RingSig) PublicKeys() []types.Point {
 	return ret
 }
 
-// PublicKeysRef returns a read-only view of the ring's public keys without copying.
-// NOTE: Do not mutate the returned slice or its elements.
+// PublicKeysRef returns a reference to the ring's public keys without copying them.
+// NOTE: While the method does not involve cloning or copying, mutating the returned slice
+// or its elements can break the integrity of the ring signature structure. Avoid mutation.
 func (r *RingSig) PublicKeysRef() []types.Point {
 	return r.ring.pubkeys
 }

@@ -4,6 +4,8 @@ go 1.24.0
 
 toolchain go1.24.3
 
+// TODO: Remove this once this PR is merge! https://github.com/pokt-network/go-dleq/pull/2
+//   Probably it should be renamed / replaced with the new fork made by pokt-network https://github.com/pokt-network/go-dleq
 replace github.com/athanorlabs/go-dleq => github.com/jorgecuesta/go-dleq v0.0.0-20250918223310-7a1fc288336f
 
 require (
