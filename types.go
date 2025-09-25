@@ -16,11 +16,9 @@ func Ed25519() types.Curve {
 	return ed25519.NewCurve()
 }
 
-// Secp256k1 returns a new secp256k1 curve instance. With the go-dleq fork,
-// this automatically uses optimized backends when available.
-// BUILD-TIME CONFIGURATION: With ethereum_secp256k1 build tag, expensive operations
-// are accelerated using libsecp256k1 via go-ethereum.
+// Secp256k1 returns a new secp256k1 curve instance.
+// BUILD-TIME CONFIGURATION: With ethereum_secp256k1 build tag,
+// expensive operations are accelerated using libsecp256k1 via go-ethereum.
 func Secp256k1() types.Curve {
 	return secp256k1.NewCurve()
 }
-
