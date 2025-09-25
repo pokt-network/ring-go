@@ -1,9 +1,9 @@
 package ring
 
 import (
-	"github.com/athanorlabs/go-dleq/ed25519"
-	"github.com/athanorlabs/go-dleq/secp256k1"
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/ed25519"
+	"github.com/pokt-network/go-dleq/secp256k1"
+	"github.com/pokt-network/go-dleq/types"
 	"github.com/pokt-network/ring-go/crypto"
 )
 

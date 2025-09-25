@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/types"
 )
 
 // CurveBackend defines the interface for pluggable secp256k1 implementations.

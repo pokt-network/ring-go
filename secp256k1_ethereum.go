@@ -4,12 +4,20 @@
 package ring
 
 import (
+	"math/big"
+
 	dsecp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
-	"github.com/athanorlabs/go-dleq/secp256k1"
+	"github.com/pokt-network/go-dleq/secp256k1"
 )
 
 // newPointFromFieldVals creates a secp256k1 point from Decred FieldVal coordinates
-// For Ethereum backend, use FieldVal directly (same as Decred backend)
+// For Ethereum backend, convert FieldVal to *big.Int
 func newPointFromFieldVals(fe, maybeY *dsecp256k1.FieldVal) *secp256k1.PointImpl {
-	return secp256k1.NewPointFromCoordinates(*fe, *maybeY)
+	// Convert FieldVal to *big.Int for Ethereum backend API
+	// Need to normalize first for proper byte representation
+	fe.Normalize()
+	maybeY.Normalize()
+	x := new(big.Int).SetBytes(fe.Bytes()[:])
+	y := new(big.Int).SetBytes(maybeY.Bytes()[:])
+	return secp256k1.NewPointFromCoordinates(x, y)
 }

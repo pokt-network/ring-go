@@ -6,8 +6,8 @@ package crypto
 import (
 	"fmt"
 
-	"github.com/athanorlabs/go-dleq/secp256k1"
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/secp256k1"
+	"github.com/pokt-network/go-dleq/types"
 )
 
 // TODO_OPTIMIZE: Consider caching computed points to avoid regenerating them on each call

@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/types"
 )
 
 // Serialize converts the signature to a byte array.

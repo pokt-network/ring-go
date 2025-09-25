@@ -10,7 +10,7 @@ import (
 	"math/big"
 
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/types"
 )
 
 var _ CurveBackend = (*ethereumBackend)(nil)

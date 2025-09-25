@@ -6,9 +6,9 @@ import (
 	"filippo.io/edwards25519"
 	"filippo.io/edwards25519/field"
 	dsecp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
-	"github.com/athanorlabs/go-dleq/ed25519"
-	"github.com/athanorlabs/go-dleq/secp256k1"
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/ed25519"
+	"github.com/pokt-network/go-dleq/secp256k1"
+	"github.com/pokt-network/go-dleq/types"
 	"golang.org/x/crypto/sha3"
 )
 

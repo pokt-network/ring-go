@@ -8,8 +8,8 @@ import (
 	"math/big"
 
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/athanorlabs/go-dleq/secp256k1"
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/secp256k1"
+	"github.com/pokt-network/go-dleq/types"
 )
 
 // OptimizedSecp256k1Curve wraps the go-dleq secp256k1 curve but optimizes

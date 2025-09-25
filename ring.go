@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/athanorlabs/go-dleq/ed25519"
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/ed25519"
+	"github.com/pokt-network/go-dleq/types"
 )
 
 // Ring represents a group of public keys such that one of the group created a signature.
