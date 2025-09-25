@@ -46,8 +46,8 @@ type CurveBackend interface {
 //
 // Example usage:
 //
-//    backend := crypto.NewSecp256k1Backend()
-//    curve := NewCurveFromBackend(backend)
+//	backend := crypto.NewSecp256k1Backend()
+//	curve := NewCurveFromBackend(backend)
 func NewSecp256k1Backend() CurveBackend {
 	return newSecp256k1Backend()
 }

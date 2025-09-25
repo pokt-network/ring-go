@@ -7,9 +7,9 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/athanorlabs/go-dleq/secp256k1"
 	"github.com/athanorlabs/go-dleq/types"
-	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 
 // OptimizedSecp256k1Curve wraps the go-dleq secp256k1 curve but optimizes

@@ -13,8 +13,6 @@ require (
 	golang.org/x/crypto v0.36.0
 )
 
-replace github.com/athanorlabs/go-dleq => /Users/olshansky/workspace/pocket/go-dleq
-
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/holiman/uint256 v1.3.1 // indirect

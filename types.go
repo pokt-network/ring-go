@@ -38,8 +38,8 @@ func Secp256k1() types.Curve {
 //
 // Example usage:
 //
-//    curve := ring.Secp256k1Fast()  // Auto-selects optimal backend
-//    ring, err := ring.NewKeyRing(curve, size, privKey, idx)
+//	curve := ring.Secp256k1Fast()  // Auto-selects optimal backend
+//	ring, err := ring.NewKeyRing(curve, size, privKey, idx)
 func Secp256k1Fast() types.Curve {
 	backend := crypto.NewSecp256k1Backend()
 	return crypto.NewCurveFromBackend(backend)
