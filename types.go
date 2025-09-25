@@ -4,7 +4,6 @@ import (
 	"github.com/pokt-network/go-dleq/ed25519"
 	"github.com/pokt-network/go-dleq/secp256k1"
 	"github.com/pokt-network/go-dleq/types"
-	"github.com/pokt-network/ring-go/crypto"
 )
 
 type (
@@ -25,22 +24,3 @@ func Secp256k1() types.Curve {
 	return secp256k1.NewCurve()
 }
 
-// Secp256k1Fast returns a new secp256k1 curve instance using pluggable crypto backends.
-// BUILD-TIME CONFIGURATION: The actual implementation is determined at compile time:
-//
-// - With "ethereum_secp256k1" tag: Uses Ethereum's libsecp256k1 (fastest, requires CGO)
-// - Without tag: Uses Decred's implementation (portable, pure Go)
-//
-// Performance benefits:
-// - ~50% faster signing operations
-// - ~80% faster verification operations
-// - Significantly fewer memory allocations
-//
-// Example usage:
-//
-//	curve := ring.Secp256k1Fast()  // Auto-selects optimal backend
-//	ring, err := ring.NewKeyRing(curve, size, privKey, idx)
-func Secp256k1Fast() types.Curve {
-	backend := crypto.NewSecp256k1Backend()
-	return crypto.NewCurveFromBackend(backend)
-}

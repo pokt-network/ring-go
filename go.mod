@@ -2,7 +2,7 @@ module github.com/pokt-network/ring-go
 
 go 1.24.3
 
-toolchain go1.24.5
+toolchain go1.24.3
 
 require (
 	filippo.io/edwards25519 v1.0.0
