@@ -3,7 +3,7 @@ package ring
 import (
 	"testing"
 
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/types"
 )
 
 const idx = 0

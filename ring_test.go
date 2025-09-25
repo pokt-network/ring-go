@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/sha3"
 )

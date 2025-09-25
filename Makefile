@@ -26,8 +26,18 @@ test_all:  ## runs the test suite
 ##########################
 
 .PHONY: benchmark_all
-benchmark_all:  ## runs the benchmark suite
-	go test -bench=. -benchmem -cpuprofile=cpu.prof -memprofile=mem.prof
+benchmark_all:  ## Run all benchmarks (tests both Decred and Ethereum backends)
+	@echo "🔬 Running benchmarks with Decred backend (Pure Go)..."
+	@echo "=================================================="
+	go test -v -bench=. -benchmem -run=^$$ ./...
+	@echo ""
+	@echo "🔬 Running benchmarks with Ethereum backend (CGO + libsecp256k1)..."
+	@echo "=================================================================="
+	CGO_ENABLED=1 go test -tags=ethereum_secp256k1 -v -bench=. -benchmem -run=^$$ ./...
+
+.PHONY: benchmark_report
+benchmark_report:  ## Compare crypto backends with formatted report for ring signatures
+	@python3 format_benchmark.py --run-benchmarks
 
 ###########################
 ###   Release Helpers   ###

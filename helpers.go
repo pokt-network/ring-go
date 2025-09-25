@@ -5,10 +5,10 @@ import (
 
 	"filippo.io/edwards25519"
 	"filippo.io/edwards25519/field"
-	"github.com/athanorlabs/go-dleq/ed25519"
-	"github.com/athanorlabs/go-dleq/secp256k1"
-	"github.com/athanorlabs/go-dleq/types"
 	dsecp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"github.com/pokt-network/go-dleq/ed25519"
+	"github.com/pokt-network/go-dleq/secp256k1"
+	"github.com/pokt-network/go-dleq/types"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -125,7 +125,7 @@ func hashToCurveSecp256k1(pk *secp256k1.PointImpl) *secp256k1.PointImpl {
 	for i := 0; i < safety; i++ {
 		ok := dsecp256k1.DecompressY(fe, false, maybeY)
 		if ok {
-			return secp256k1.NewPointFromCoordinates(*fe, *maybeY)
+			return newPointFromFieldVals(fe, maybeY)
 		}
 
 		hash = sha3.Sum256(hash[:])

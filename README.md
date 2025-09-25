@@ -1,6 +1,6 @@
 # ring-go <!-- omit in toc -->
 
-Implementation of linkable ring signatures using elliptic curve crypto in pure Go.
+Implementation of linkable ring signatures using elliptic curve crypto in Go.
 It supports ring signatures over both ed25519 and secp256k1.
 
 - [Requirements](#requirements)
@@ -70,3 +70,4 @@ func main() {
     signAndVerify(ring.Ed25519())
 }
 ```
+

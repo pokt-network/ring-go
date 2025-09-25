@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/athanorlabs/go-dleq/ed25519"
-	"github.com/athanorlabs/go-dleq/types"
+	"github.com/pokt-network/go-dleq/ed25519"
+	"github.com/pokt-network/go-dleq/types"
 )
 
 // Ring represents a group of public keys such that one of the group created a signature.
@@ -75,7 +75,7 @@ func NewKeyRingFromPublicKeys(curve types.Curve, pubkeys []types.Point, privKey 
 	}
 
 	// ensure that privkey is nonzero
-	if privkey.IsZero() {
+	if privKey.IsZero() {
 		return nil, errors.New("private key is zero")
 	}
 
@@ -136,7 +136,7 @@ func NewKeyRing(curve types.Curve, size int, privKey types.Scalar, idx int) (*Ri
 	}
 
 	// ensure that privkey is nonzero
-	if privkey.IsZero() {
+	if privKey.IsZero() {
 		return nil, errors.New("private key is zero")
 	}
 
@@ -190,7 +190,7 @@ func Sign(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int) (*RingSig, e
 	}
 
 	// ensure that privkey is nonzero
-	if privkey.IsZero() {
+	if privKey.IsZero() {
 		return nil, errors.New("private key is zero")
 	}
 
