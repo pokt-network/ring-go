@@ -259,3 +259,121 @@ func TestSign_OneKey_Fails(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, "size of ring less than two", err.Error())
 }
+
+// TestSignWithContext tests that SignWithContext produces valid signatures
+func TestSignWithContext_Secp256k1(t *testing.T) {
+	curve := Secp256k1()
+	privKey := curve.NewRandomScalar()
+	keyring, err := NewKeyRing(curve, 10, privKey, 3)
+	require.NoError(t, err)
+
+	// Create signer context
+	ctx, err := keyring.NewSignerContext(privKey)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	// Sign multiple messages with the same context
+	for i := 0; i < 5; i++ {
+		msg := sha3.Sum256([]byte("message" + string(rune(i))))
+		sig, err := keyring.SignWithContext(msg, ctx)
+		require.NoError(t, err)
+		require.True(t, sig.Verify(msg))
+	}
+}
+
+func TestSignWithContext_Ed25519(t *testing.T) {
+	curve := Ed25519()
+	privKey := curve.NewRandomScalar()
+	keyring, err := NewKeyRing(curve, 10, privKey, 3)
+	require.NoError(t, err)
+
+	// Create signer context
+	ctx, err := keyring.NewSignerContext(privKey)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	// Sign multiple messages with the same context
+	for i := 0; i < 5; i++ {
+		msg := sha3.Sum256([]byte("message" + string(rune(i))))
+		sig, err := keyring.SignWithContext(msg, ctx)
+		require.NoError(t, err)
+		require.True(t, sig.Verify(msg))
+	}
+}
+
+func TestSignWithContext_InvalidPrivKey(t *testing.T) {
+	curve := Secp256k1()
+	privKey := curve.NewRandomScalar()
+	wrongPrivKey := curve.NewRandomScalar()
+	keyring, err := NewKeyRing(curve, 10, privKey, 3)
+	require.NoError(t, err)
+
+	// Try to create context with wrong private key
+	_, err = keyring.NewSignerContext(wrongPrivKey)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "does not correspond to any public key")
+}
+
+func TestSignWithContext_ZeroPrivKey(t *testing.T) {
+	curve := Secp256k1()
+	privKey := curve.NewRandomScalar()
+	keyring, err := NewKeyRing(curve, 10, privKey, 3)
+	require.NoError(t, err)
+
+	// Try to create context with zero private key
+	zeroKey := curve.ScalarFromBytes([32]byte{})
+	_, err = keyring.NewSignerContext(zeroKey)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "private key is zero")
+}
+
+func TestSignWithContext_Linkability(t *testing.T) {
+	curve := Secp256k1()
+	privKey := curve.NewRandomScalar()
+
+	keyring1, err := NewKeyRing(curve, 5, privKey, 2)
+	require.NoError(t, err)
+	keyring2, err := NewKeyRing(curve, 5, privKey, 2)
+	require.NoError(t, err)
+
+	ctx1, err := keyring1.NewSignerContext(privKey)
+	require.NoError(t, err)
+	ctx2, err := keyring2.NewSignerContext(privKey)
+	require.NoError(t, err)
+
+	msg1 := sha3.Sum256([]byte("message1"))
+	msg2 := sha3.Sum256([]byte("message2"))
+
+	sig1, err := keyring1.SignWithContext(msg1, ctx1)
+	require.NoError(t, err)
+	sig2, err := keyring2.SignWithContext(msg2, ctx2)
+	require.NoError(t, err)
+
+	// Same private key should produce linkable signatures
+	require.True(t, Link(sig1, sig2))
+}
+
+func TestSignWithContext_MatchesSign(t *testing.T) {
+	// Verify that SignWithContext produces the same key image as Sign
+	// (signatures will differ due to random values, but key images should match)
+	curve := Secp256k1()
+	privKey := curve.NewRandomScalar()
+	keyring, err := NewKeyRing(curve, 10, privKey, 5)
+	require.NoError(t, err)
+
+	ctx, err := keyring.NewSignerContext(privKey)
+	require.NoError(t, err)
+
+	sig1, err := keyring.Sign(testMsg, privKey)
+	require.NoError(t, err)
+
+	sig2, err := keyring.SignWithContext(testMsg, ctx)
+	require.NoError(t, err)
+
+	// Both signatures should be valid
+	require.True(t, sig1.Verify(testMsg))
+	require.True(t, sig2.Verify(testMsg))
+
+	// Key images should be identical (they depend only on privKey)
+	require.True(t, Link(sig1, sig2))
+}

@@ -44,6 +44,67 @@ type RingSig struct {
 	image types.Point    // key image
 }
 
+// SignerContext holds pre-computed values for repeated signing with the same private key.
+// This significantly improves performance when signing multiple messages with the same key
+// by avoiding redundant scalar-base multiplications and hash-to-curve operations.
+//
+// Usage:
+//
+//	ctx, err := ring.NewSignerContext(privKey)
+//	sig1, _ := ring.SignWithContext(msg1, ctx)
+//	sig2, _ := ring.SignWithContext(msg2, ctx) // much faster
+type SignerContext struct {
+	privKey types.Scalar // the private key
+	pubkey  types.Point  // pre-computed: G * privKey
+	h       types.Point  // pre-computed: hashToCurve(pubkey)
+	image   types.Point  // pre-computed: privKey * h (key image)
+	idx     int          // signer's index in the ring (-1 if not yet determined)
+}
+
+// NewSignerContext creates a SignerContext with pre-computed cryptographic values.
+// The context can be reused across multiple Sign operations for the same private key,
+// significantly reducing per-signature overhead.
+func (r *Ring) NewSignerContext(privKey types.Scalar) (*SignerContext, error) {
+	if privKey.IsZero() {
+		return nil, errors.New("private key is zero")
+	}
+
+	// Pre-compute public key
+	pubkey := r.curve.ScalarBaseMul(privKey)
+
+	// Find signer's index in ring
+	idx := -1
+	for i, pk := range r.pubkeys {
+		if pk.Equals(pubkey) {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return nil, errors.New("private key does not correspond to any public key in the ring")
+	}
+
+	// Pre-compute hash-to-curve
+	h := hashToCurve(pubkey)
+
+	// Pre-compute key image
+	image := r.curve.ScalarMul(privKey, h)
+
+	return &SignerContext{
+		privKey: privKey,
+		pubkey:  pubkey,
+		h:       h,
+		image:   image,
+		idx:     idx,
+	}, nil
+}
+
+// SignWithContext creates a ring signature using pre-computed values from SignerContext.
+// This is significantly faster than Sign() for repeated signing with the same key.
+func (r *Ring) SignWithContext(m [32]byte, ctx *SignerContext) (*RingSig, error) {
+	return signInternal(m, r, ctx.privKey, ctx.idx, ctx.pubkey, ctx.h, ctx.image)
+}
+
 // PublicKeys returns a copy of the ring signature's public keys.
 func (r *RingSig) PublicKeys() []types.Point {
 	ret := make([]types.Point, len(r.ring.pubkeys))
@@ -200,13 +261,29 @@ func Sign(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int) (*RingSig, e
 		return nil, errors.New("secret index in ring is not signer")
 	}
 
+	// Compute remaining values and delegate to internal implementation
+	h := hashToCurve(pubkey)
+	image := ring.curve.ScalarMul(privKey, h)
+	return signInternal(m, ring, privKey, ourIdx, pubkey, h, image)
+}
+
+// signInternal is the core signing implementation that accepts pre-computed values.
+// This avoids redundant computation when called from SignWithContext.
+func signInternal(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int, pubkey, h, image types.Point) (*RingSig, error) {
+	size := len(ring.pubkeys)
+	if size < 2 {
+		return nil, errors.New("size of ring less than two")
+	}
+
+	if ourIdx >= size {
+		return nil, errors.New("secret index out of range of ring size")
+	}
+
 	// setup
 	curve := ring.curve
-	h := hashToCurve(pubkey)
 	sig := &RingSig{
-		ring: ring,
-		// calculate key image I = x * H_p(P) where H_p is a hash-to-curve function
-		image: curve.ScalarMul(privKey, h),
+		ring:  ring,
+		image: image,
 	}
 
 	// start at c[j]
