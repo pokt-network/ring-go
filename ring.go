@@ -326,6 +326,13 @@ func signInternal(m [32]byte, ring *Ring, privKey types.Scalar, ourIdx int, pubk
 // its cost is not identical to the plain path. Do NOT use SignerContext on
 // consensus-critical / gas-metered paths where the amount of work performed
 // must be deterministic across nodes — use Sign there.
+//
+// Lifecycle: a SignerContext is caller-owned. This package keeps no cache or
+// global state of contexts; a context lives exactly as long as the caller holds
+// it. Callers that cache contexts (e.g. keyed by ring) own that cache and must
+// bound it (LRU, TTL, or eviction on ring change) — each context retains a
+// hash-to-curve point per ring member, so an unbounded cache over changing
+// rings grows without limit.
 type SignerContext struct {
 	pubkey       types.Point   // P = x*G (public)
 	h            types.Point   // H_p(P) == memberHashes[idx] (public)

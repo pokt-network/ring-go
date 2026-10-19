@@ -131,7 +131,17 @@ on (`SkipSelfCheck = false`); enabling it saves a little more.
 | secp256k1 · 32    |              861 |                         762 |    ~-11%  |
 | ed25519 · 8       |              202 |                         169 |    ~-16%  |
 
-The saving comes from not recomputing every ring member's hash-to-curve on each
-signature; it grows with how many times you reuse the same context. Run the
-suite yourself with `make benchmark_all` (see `bench_test.go`).
+Allocations understate the win. The real saving is **signing CPU**: each ring
+member's hash-to-curve is field-op heavy (on secp256k1 it is dominated by field
+squarings), and `SignWithContext` does it once per context instead of once per
+signature. In a downstream production canary at ring size 32, the share of
+signing CPU spent in secp256k1 field squaring (`FieldVal.SquareVal`) dropped
+from **31.9% to 23.6%** after switching to `SignWithContext`. The saving grows
+with ring size and with how many times you reuse the same context.
+
+Run the suite yourself with `make benchmark_all` (see `bench_test.go`).
+
+> A `SignerContext` is caller-owned: this package caches nothing. If you cache
+> contexts (e.g. per ring), bound that cache (LRU/TTL, evict on ring change) —
+> each context holds one point per ring member.
 
