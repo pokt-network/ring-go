@@ -11,7 +11,7 @@ It supports ring signatures over both ed25519 and secp256k1.
 
 ## Requirements
 
-go 1.26
+go 1.27
 
 ## Install
 
